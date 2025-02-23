@@ -1,31 +1,33 @@
-use std::{
-    io::Result,
-    sync::mpsc,
-    thread::{self},
-};
+use std::io::Result;
 
+use algorithms::bubble_sort::BubbleSort;
+
+pub mod algorithms;
 pub mod app;
-pub mod events;
-pub mod ui;
+pub mod array;
+pub mod state;
 
 fn main() -> Result<()> {
     let mut terminal = ratatui::init();
 
-    let mut app = app::App::new();
+    let app = app::App::new(generate_array());
+    app.run(Box::new(BubbleSort));
 
-    let (tx, rx) = mpsc::channel();
-
-    let (alg_tx, alg_rx) = mpsc::channel();
-
-    let clone1 = tx.clone();
-    thread::spawn(move || events::handle_input_events(clone1));
-
-    let clone2 = tx.clone();
-    thread::spawn(move || events::handle_algorithm(clone2, alg_rx));
-
-    let result = app.run(&mut terminal, rx, alg_tx);
+    loop {
+        terminal.draw(|frame| app.draw(frame)).unwrap();
+    }
 
     ratatui::restore();
 
-    result
+    Ok(())
+}
+
+pub fn generate_array() -> Vec<u32> {
+    let mut arr: Vec<u32> = [0; 50].to_vec();
+
+    for i in 0..50 {
+        arr[i] = 50 as u32 - i as u32;
+    }
+
+    arr
 }

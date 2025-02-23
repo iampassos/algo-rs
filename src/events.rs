@@ -7,11 +7,11 @@ use std::{
 
 use crossterm::event;
 
-use crate::app;
+use crate::app_old;
 
 pub struct ProgressEvent {
     pub name: String,
-    pub array: app::ArraySize,
+    pub array: app_old::ArraySize,
     pub iterations: u32,
     pub start: time::Instant,
 }
@@ -38,7 +38,7 @@ pub fn handle_input_events(tx: mpsc::Sender<Event>) -> Result<()> {
 pub fn handle_algorithm(tx: mpsc::Sender<Event>, rx: mpsc::Receiver<AlgorithmEvent>) -> Result<()> {
     let start = time::Instant::now();
 
-    let mut array = app::reset_array();
+    let mut array = app_old::reset_array();
     let len = array.len();
 
     let mut iterations = 0;
