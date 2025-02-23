@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread, time::Instant};
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,7 +12,7 @@ use ratatui::{
 use crate::{
     algorithms::Algorithm,
     array::Array,
-    state::{SharedState, State},
+    state::{SharedState, State, Status},
 };
 
 pub struct App {
@@ -26,7 +26,10 @@ impl App {
                 array,
                 iterations: 0,
                 last_swapped: 0,
-                completed: false,
+                status: Status::Paused,
+                start: Instant::now(),
+                end: Instant::now(),
+                algorithm: String::from("None"),
             }),
         }
     }
@@ -62,8 +65,11 @@ impl App {
             "<P> ".blue().bold(),
         ]);
 
-        let completed = self.state.get_completed();
+        let status = self.state.get_status();
+        let start = self.state.get_start();
+        let algorithm = self.state.get_algorithm();
         let array = self.state.get().array.clone();
+        let last = self.state.get_last();
         let iterations = self.state.get().iterations;
 
         let block = Block::bordered()
@@ -71,18 +77,28 @@ impl App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let complete_style = if completed {
-            Style::new().green()
+        let completed_style = Style::new().green();
+
+        let complete_style = if let Status::Completed = status {
+            completed_style
         } else {
             Style::new().white()
         };
 
         let bars: Vec<Bar> = array
             .iter()
-            .map(|n| {
-                Bar::default()
-                    .value_style(complete_style.reversed())
-                    .value(u64::from(*n))
+            .enumerate()
+            .map(|(i, n)| {
+                let bar = Bar::default();
+
+                if i == last as usize {
+                    bar.style(completed_style)
+                        .value_style(completed_style.reversed())
+                        .value(u64::from(*n))
+                } else {
+                    bar.value_style(complete_style.reversed())
+                        .value(u64::from(*n))
+                }
             })
             .collect();
 
@@ -112,14 +128,26 @@ impl App {
             .constraints(vec![Constraint::Percentage(15), Constraint::Percentage(85)])
             .split(inner);
 
-        let status = if completed { "Completed" } else { "Running" };
+        let status_text = match status {
+            Status::Completed => "Completed",
+            Status::Paused => "Paused",
+            Status::Running => "Running",
+        };
 
         let overview = List::new(Line::from(vec![
-            //format!("Algorithm: {}", self.algorithm).into(),
+            format!("Algorithm: {}", algorithm).into(),
             format!("Total Numbers: {}", array.len()).into(),
             format!("Iterations: {}", iterations).into(),
-            //format!("Time Elapsed: {:.2}s", self.elapsed).into(),
-            format!("Status: {}", status).into(),
+            format!(
+                "Time Elapsed: {:.2}s",
+                if let Status::Paused | Status::Completed = status {
+                    (self.state.get_end() - start).as_secs_f32()
+                } else {
+                    start.elapsed().as_secs_f32()
+                }
+            )
+            .into(),
+            format!("Status: {}", status_text).into(),
         ]));
 
         frame.render_widget(barchart, graph_layout);

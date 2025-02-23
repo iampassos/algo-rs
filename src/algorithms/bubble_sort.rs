@@ -1,10 +1,19 @@
+use std::time;
+
 use super::Algorithm;
-use crate::{array::Array, state::SharedState};
+use crate::{
+    array::Array,
+    state::{SharedState, Status},
+};
 
 pub struct BubbleSort;
 
 impl Algorithm for BubbleSort {
     fn sort(&self, state: SharedState, array: Array) {
+        state.set_algorithm("Bubble Sort".to_string());
+        state.set_status(Status::Running);
+        state.set_start(time::Instant::now());
+
         let len = array.len();
 
         for i in 0..len - 1 {
@@ -14,11 +23,12 @@ impl Algorithm for BubbleSort {
                 if array.get(j) > array.get(j + 1) {
                     swap = true;
 
+                    state.set_last(u32::try_from(j + 1).unwrap());
                     array.swap(j, j + 1);
-                    state.set_last(u32::try_from(j).unwrap());
                 }
 
                 state.increment_iterations();
+                state.sleep();
             }
 
             if !swap {
@@ -26,6 +36,6 @@ impl Algorithm for BubbleSort {
             }
         }
 
-        state.set_completed(true);
+        state.set_status(Status::Completed);
     }
 }
