@@ -1,11 +1,12 @@
-use std::{thread, time::Instant};
+use std::{io::Result, sync::mpsc, thread, time::Instant};
 
+use crossterm::event;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     symbols::border,
     text::Line,
-    widgets::{Bar, BarChart, BarGroup, Block, List, Padding, Widget},
+    widgets::{Bar, BarChart, BarGroup, Block, List, Padding},
     Frame,
 };
 
@@ -15,13 +16,19 @@ use crate::{
     state::{SharedState, State, Status},
 };
 
+pub enum Event {
+    Input(event::KeyEvent),
+}
+
 pub struct App {
+    pub exit: bool,
     state: SharedState,
 }
 
 impl App {
     pub fn new(array: Vec<u32>) -> Self {
         Self {
+            exit: false,
             state: SharedState::new(State {
                 array,
                 iterations: 0,
@@ -34,11 +41,29 @@ impl App {
         }
     }
 
-    pub fn run(&self, algorithm: Box<dyn Algorithm + Send>) {
+    pub fn run(&self, algorithm: Box<dyn Algorithm + Send>, tx: mpsc::Sender<Event>) -> Result<()> {
         let algorithm_state1 = self.state.clone();
         let algorithm_state2 = self.state.clone();
 
         thread::spawn(move || algorithm.sort(algorithm_state1, Array::new(algorithm_state2)));
+
+        thread::spawn(move || loop {
+            match event::read().unwrap() {
+                event::Event::Key(key_event) => tx.send(Event::Input(key_event)).unwrap(),
+                _ => {}
+            }
+        });
+
+        Ok(())
+    }
+
+    pub fn handle_input(&mut self, key_event: event::KeyEvent) {
+        if key_event.kind == event::KeyEventKind::Press {
+            match key_event.code {
+                event::KeyCode::Char('q') => self.exit = true,
+                _ => {}
+            }
+        }
     }
 
     pub fn draw(&self, frame: &mut Frame) {
