@@ -1,7 +1,5 @@
 use std::{io::Result, sync::mpsc, thread, time};
 
-use algorithms::bubble_sort::BubbleSort;
-
 pub mod algorithms;
 pub mod app;
 pub mod array;
@@ -14,8 +12,7 @@ fn main() -> Result<()> {
 
     let (tx, rx) = mpsc::channel::<app::Event>();
 
-    let mut app = App::new(generate_array());
-    app.run(Box::new(BubbleSort), tx.clone()).unwrap();
+    let mut app = App::init(tx.clone());
 
     while !app.exit {
         let event = rx.try_recv();
@@ -34,14 +31,4 @@ fn main() -> Result<()> {
     ratatui::restore();
 
     Ok(())
-}
-
-pub fn generate_array() -> Vec<u32> {
-    let mut arr: Vec<u32> = [0; 50].to_vec();
-
-    for i in 0..50 {
-        arr[i] = 50 as u32 - i as u32;
-    }
-
-    arr
 }

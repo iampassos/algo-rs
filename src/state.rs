@@ -4,11 +4,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::app::App;
+
 #[derive(Clone)]
 pub enum Status {
     Running,
     Completed,
     Paused,
+    Interrupted,
 }
 
 pub struct State {
@@ -21,6 +24,20 @@ pub struct State {
     pub algorithm: String,
 }
 
+impl State {
+    pub fn new(array: Vec<u32>) -> Self {
+        State {
+            array,
+            iterations: 0,
+            last_swapped: 0,
+            status: Status::Paused,
+            start: Instant::now(),
+            end: Instant::now(),
+            algorithm: String::from("None"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SharedState(Arc<Mutex<State>>);
 
@@ -29,8 +46,17 @@ impl SharedState {
         Self(Arc::new(Mutex::new(state)))
     }
 
+    pub fn reset_array(&self) {
+        let array = App::generate_array();
+        self.get().array = array;
+    }
+
     pub fn sleep(&self) {
         thread::sleep(Duration::from_millis(10));
+    }
+
+    pub fn park(&self) {
+        thread::park();
     }
 
     pub fn get(&self) -> MutexGuard<'_, State> {

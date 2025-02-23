@@ -20,6 +20,12 @@ impl Algorithm for BubbleSort {
             let mut swap = false;
 
             for j in 0..len - i - 1 {
+                match state.get_status() {
+                    Status::Paused => state.park(),
+                    Status::Interrupted => return,
+                    _ => {}
+                };
+
                 if array.get(j) > array.get(j + 1) {
                     swap = true;
 
