@@ -3,6 +3,8 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use rand::prelude::*;
+
 use crossterm::{event, style::Color};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,7 +16,10 @@ use ratatui::{
 };
 
 use crate::{
-    algorithms::{bubble_sort::BubbleSort, Algorithm},
+    algorithms::{
+        bubble_sort::BubbleSort, insertion_sort::InsertionSort, selection_sort::SelectionSort,
+        Algorithm,
+    },
     array::Array,
     state::{SharedState, State, Status},
 };
@@ -71,6 +76,8 @@ impl App {
                     }
                 }
                 event::KeyCode::Char('1') => self.start_algorithm(Box::new(BubbleSort)),
+                event::KeyCode::Char('2') => self.start_algorithm(Box::new(SelectionSort)),
+                event::KeyCode::Char('3') => self.start_algorithm(Box::new(InsertionSort)),
                 _ => {}
             }
         }
@@ -97,13 +104,10 @@ impl App {
     }
 
     pub fn generate_array() -> Vec<u32> {
-        let mut arr: Vec<u32> = [0; 150].to_vec();
-
-        for i in 0..150 {
-            arr[i] = 150 as u32 - i as u32;
-        }
-
-        arr
+        let mut rng = rand::rng();
+        let mut nums: Vec<u32> = (1..151).collect();
+        nums.shuffle(&mut rng);
+        nums
     }
 
     pub fn draw(&self, frame: &mut Frame) {
@@ -112,7 +116,8 @@ impl App {
             last_swapped,
             comparison,
             checked,
-            iterations,
+            array_accesses,
+            comparisons,
             status,
             start,
             end,
@@ -144,11 +149,14 @@ impl App {
             .iter()
             .enumerate()
             .map(|(i, n)| {
-                let bar = Bar::default();
-
                 let completed_bar = Bar::default()
                     .style(completed_style)
                     .value_style(completed_style.on_green())
+                    .value(u64::from(*n));
+
+                let comparison_bar = Bar::default()
+                    .style(comparison_style)
+                    .value_style(comparison_style.on_red())
                     .value(u64::from(*n));
 
                 if let Status::Completed = status {
@@ -157,11 +165,12 @@ impl App {
                 {
                     completed_bar
                 } else if comparison.contains(&u32::try_from(i).unwrap()) {
-                    bar.style(comparison_style)
-                        .value_style(comparison_style.on_red())
-                        .value(u64::from(*n))
+                    comparison_bar
+                } else if let Status::Failed = status {
+                    comparison_bar
                 } else {
-                    bar.style(style)
+                    Bar::default()
+                        .style(style)
                         .value_style(style.on_white())
                         .value(u64::from(*n))
                 }
@@ -220,7 +229,8 @@ impl App {
             Line::from(vec![
                 format!("Algorithm: {}", algorithm).into(),
                 format!("Total Numbers: {}", array.len()).into(),
-                format!("Iterations: {}", iterations).into(),
+                format!("Array Accesses: {}", array_accesses).into(),
+                format!("Comparisons: {}", comparisons).into(),
                 format!(
                     "Time Elapsed: {:.2}s",
                     if let Status::Paused | Status::Failed | Status::Checking | Status::Completed =

@@ -11,6 +11,7 @@ impl Array {
     }
 
     pub fn get(&self, index: usize) -> u32 {
+        self.0.increment_accesses(1);
         *self.0.get().array.index(index)
     }
 
@@ -20,6 +21,7 @@ impl Array {
     }
 
     pub fn set(&self, index: usize, value: u32) -> u32 {
+        self.0.increment_accesses(1);
         let mut state = self.0.get();
         state.array[index] = value;
         value
@@ -29,7 +31,17 @@ impl Array {
         self.0.get().array.len()
     }
 
+    pub fn compare(&self, index1: usize, index2: usize) -> bool {
+        self.0.increment_comparisons();
+        self.0.set_comparison([
+            u32::try_from(index1).unwrap(),
+            u32::try_from(index2).unwrap(),
+        ]);
+        self.get(index1) > self.get(index2)
+    }
+
     pub fn swap(&self, index1: usize, index2: usize) {
         self.0.get().array.swap(index1, index2);
+        self.0.increment_accesses(4);
     }
 }

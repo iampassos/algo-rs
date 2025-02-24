@@ -6,37 +6,37 @@ use crate::{
     state::{SharedState, Status},
 };
 
-pub struct BubbleSort;
+pub struct InsertionSort;
 
-impl Algorithm for BubbleSort {
+impl Algorithm for InsertionSort {
     fn sort(&self, state: SharedState, array: Array) {
-        state.set_algorithm("Bubble Sort".to_string());
+        state.set_algorithm("Insertion Sort".to_string());
         state.set_status(Status::Running);
         state.set_start(time::Instant::now());
 
         let len = array.len();
 
-        for i in 0..len - 1 {
-            let mut swap = false;
+        for i in 1..len {
+            match state.get_status() {
+                Status::Paused => state.park(),
+                Status::Interrupted => return,
+                _ => {}
+            };
 
-            for j in 0..len - i - 1 {
+            let mut left = i;
+
+            while left > 0 && array.compare(left - 1, left) {
                 match state.get_status() {
                     Status::Paused => state.park(),
                     Status::Interrupted => return,
                     _ => {}
                 };
 
-                if array.compare(j, j + 1) {
-                    swap = true;
-                    state.set_last(u32::try_from(j + 1).unwrap());
-                    array.swap(j, j + 1);
-                }
+                state.set_last(u32::try_from(left).unwrap());
+                array.swap(left - 1, left);
+                left -= 1;
 
                 state.sleep(None);
-            }
-
-            if !swap {
-                break;
             }
         }
 

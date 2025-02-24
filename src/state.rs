@@ -22,7 +22,8 @@ pub struct State {
     pub last_swapped: u32,
     pub comparison: [u32; 2],
     pub checked: Vec<u32>,
-    pub iterations: u32,
+    pub comparisons: u32,
+    pub array_accesses: u32,
     pub status: Status,
     pub start: Instant,
     pub end: Instant,
@@ -33,10 +34,11 @@ impl State {
     pub fn new(array: Vec<u32>) -> Self {
         State {
             array,
-            iterations: 0,
-            last_swapped: 0,
+            array_accesses: 0,
+            comparisons: 0,
+            last_swapped: 999,
             checked: vec![],
-            comparison: [0; 2],
+            comparison: [999; 2],
             status: Status::Paused,
             start: Instant::now(),
             end: Instant::now(),
@@ -94,7 +96,7 @@ impl SharedState {
             if array[i] < array[i + 1] {
                 self.set_checked(u32::try_from(i).unwrap());
                 self.set_comparison([u32::try_from(i).unwrap(), u32::try_from(i + 1).unwrap()]);
-                self.sleep(Some(5));
+                self.sleep(None);
             };
         }
 
@@ -125,14 +127,24 @@ impl SharedState {
         indexes
     }
 
-    pub fn get_iterations(&self) -> u32 {
-        self.get().iterations
+    pub fn get_accesses(&self) -> u32 {
+        self.get().array_accesses
     }
 
-    pub fn increment_iterations(&self) -> u32 {
+    pub fn increment_accesses(&self, value: u32) -> u32 {
         let mut state = self.get();
-        state.iterations += 1;
-        state.iterations + 1
+        state.array_accesses += value;
+        state.array_accesses + value
+    }
+
+    pub fn get_comparisons(&self) -> u32 {
+        self.get().comparisons
+    }
+
+    pub fn increment_comparisons(&self) -> u32 {
+        let mut state = self.get();
+        state.comparisons += 1;
+        state.comparisons + 1
     }
 
     pub fn get_status(&self) -> Status {
