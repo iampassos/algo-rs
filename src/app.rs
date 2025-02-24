@@ -1,17 +1,15 @@
 use std::{
-    io::Result,
     sync::mpsc,
     thread::{self, JoinHandle},
-    time::{Duration, Instant},
 };
 
-use crossterm::event;
+use crossterm::{event, style::Color};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     symbols::border,
     text::Line,
-    widgets::{Bar, BarChart, BarGroup, Block, List, Padding},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, List},
     Frame,
 };
 
@@ -99,57 +97,47 @@ impl App {
     }
 
     pub fn generate_array() -> Vec<u32> {
-        let mut arr: Vec<u32> = [0; 50].to_vec();
+        let mut arr: Vec<u32> = [0; 150].to_vec();
 
-        for i in 0..50 {
-            arr[i] = 50 as u32 - i as u32;
+        for i in 0..150 {
+            arr[i] = 150 as u32 - i as u32;
         }
 
         arr
     }
 
     pub fn draw(&self, frame: &mut Frame) {
+        let State {
+            array,
+            last_swapped,
+            comparison,
+            checked,
+            iterations,
+            status,
+            start,
+            end,
+            algorithm,
+        } = self.state.get().clone();
+
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Percentage(20),
-                Constraint::Percentage(60),
-                Constraint::Percentage(20),
-            ])
+            .constraints(vec![Constraint::Percentage(20), Constraint::Percentage(80)])
             .split(frame.area());
 
-        let graph_layout = centered_rect(80, 55, frame.area());
+        let graph_layout = centered_rect(79, 55, frame.area());
 
-        let title = Line::from(" Rust Algorithm Visualizer ")
-            .bold()
-            .green()
-            .centered();
-
-        let instructions = Line::from(vec![
-            " Quit ".red().bold(),
-            "<Q> ".blue().bold(),
-            "Pause/Resume ".red().bold(),
-            "<P> ".blue().bold(),
-        ]);
-
-        let status = self.state.get_status();
-        let start = self.state.get_start();
-        let algorithm = self.state.get_algorithm();
-        let array = self.state.get().array.clone();
-        let last = self.state.get_last();
-        let iterations = self.state.get().iterations;
-
-        let block = Block::bordered()
-            .title(title)
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
+        let block = Block::new()
+            .title(Line::bold(format!(" {algorithm} ").into()).centered())
+            .border_set(border::THICK)
+            .borders(Borders::BOTTOM);
 
         let completed_style = Style::new().green();
+        let comparison_style = Style::new().red();
+        let normal_style = Style::new().white();
 
-        let complete_style = if let Status::Completed = status {
-            completed_style
-        } else {
-            Style::new().white()
+        let style = match status {
+            Status::Completed => completed_style,
+            _ => normal_style,
         };
 
         let bars: Vec<Bar> = array
@@ -158,48 +146,74 @@ impl App {
             .map(|(i, n)| {
                 let bar = Bar::default();
 
-                if i == last as usize {
-                    bar.style(completed_style)
-                        .value_style(completed_style.reversed())
+                let completed_bar = Bar::default()
+                    .style(completed_style)
+                    .value_style(completed_style.on_green())
+                    .value(u64::from(*n));
+
+                if let Status::Completed = status {
+                    completed_bar
+                } else if i == last_swapped as usize || checked.contains(&u32::try_from(i).unwrap())
+                {
+                    completed_bar
+                } else if comparison.contains(&u32::try_from(i).unwrap()) {
+                    bar.style(comparison_style)
+                        .value_style(comparison_style.on_red())
                         .value(u64::from(*n))
                 } else {
-                    bar.value_style(complete_style.reversed())
+                    bar.style(style)
+                        .value_style(style.on_white())
                         .value(u64::from(*n))
                 }
             })
             .collect();
 
-        let clone = block.clone();
-
         let barchart = BarChart::default()
-            .block(block.padding(Padding {
-                left: 1,
-                right: 0,
-                top: 0,
-                bottom: 0,
-            }))
-            .bar_width(2)
-            .bar_gap(1)
-            .bar_style(complete_style)
-            .value_style(complete_style)
-            .label_style(complete_style)
+            .block(block)
+            .bar_width(1)
+            .bar_gap(0)
+            .bar_style(style)
+            .value_style(style)
+            .label_style(style)
             .data(BarGroup::default().bars(bars.as_slice()));
-
-        let title = Line::from(" Overview ").centered();
-
-        let inner_block = Block::bordered().title(title).border_set(border::THICK);
-        let inner = clone.inner(layout[0]);
 
         let layout_inner = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(15), Constraint::Percentage(85)])
-            .split(inner);
+            .constraints(vec![
+                Constraint::Percentage(1),
+                Constraint::Percentage(15),
+                Constraint::Fill(1),
+                Constraint::Percentage(10),
+                Constraint::Percentage(1),
+            ])
+            .split(layout[0]);
+
+        let overview_block = Block::new()
+            .title(Line::raw(" Overview ").centered())
+            .borders(Borders::TOP);
+        let overview_rect = overview_block.inner(layout_inner[1]);
+
+        let help_block = Block::new()
+            .title(Line::raw(" Help ").centered())
+            .borders(Borders::TOP);
+        let help_rect = help_block.inner(layout_inner[3]);
 
         let status_text = match status {
             Status::Completed => "Completed",
             Status::Paused => "Paused",
             Status::Running => "Running",
             Status::Interrupted => "Interrupted",
+            Status::Checking => "Checking",
+            Status::Failed => "Failed",
+        };
+
+        let status_color = match status {
+            Status::Completed => Color::Green,
+            Status::Running => Color::White,
+            Status::Paused => Color::Yellow,
+            Status::Interrupted => Color::Red,
+            Status::Checking => Color::Yellow,
+            Status::Failed => Color::Red,
         };
 
         let overview = List::new(
@@ -209,20 +223,33 @@ impl App {
                 format!("Iterations: {}", iterations).into(),
                 format!(
                     "Time Elapsed: {:.2}s",
-                    if let Status::Paused | Status::Completed = status {
-                        (self.state.get_end() - start).as_secs_f32()
+                    if let Status::Paused | Status::Failed | Status::Checking | Status::Completed =
+                        status
+                    {
+                        (end - start).as_secs_f32()
                     } else {
                         start.elapsed().as_secs_f32()
                     }
                 )
                 .into(),
-                format!("Status: {}", status_text).into(),
+                format!("Status: {}", status_text).fg(status_color).into(),
+            ])
+            .centered(),
+        );
+
+        let help = List::new(
+            Line::from(vec![
+                "Quit: <Q>".into(),
+                "Pause/Resume: <P>".into(),
+                "Next: <L>".into(),
+                "Previous: <H>".into(),
             ])
             .centered(),
         );
 
         frame.render_widget(barchart, graph_layout);
-        frame.render_widget(overview.block(inner_block), layout_inner[0]);
+        frame.render_widget(overview.block(overview_block), overview_rect);
+        frame.render_widget(help.block(help_block), help_rect);
     }
 }
 

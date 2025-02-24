@@ -26,6 +26,8 @@ impl Algorithm for BubbleSort {
                     _ => {}
                 };
 
+                state.set_comparison([u32::try_from(j).unwrap(), u32::try_from(j + 1).unwrap()]);
+
                 if array.get(j) > array.get(j + 1) {
                     swap = true;
 
@@ -34,7 +36,7 @@ impl Algorithm for BubbleSort {
                 }
 
                 state.increment_iterations();
-                state.sleep();
+                state.sleep(None);
             }
 
             if !swap {
@@ -42,6 +44,6 @@ impl Algorithm for BubbleSort {
             }
         }
 
-        state.set_status(Status::Completed);
+        state.check();
     }
 }
