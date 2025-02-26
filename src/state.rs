@@ -1,7 +1,7 @@
 use std::{
     sync::{Arc, Mutex, MutexGuard},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use crate::app::App;
@@ -25,9 +25,9 @@ pub struct State {
     pub comparisons: u32,
     pub array_accesses: u32,
     pub status: Status,
-    pub start: Instant,
-    pub end: Instant,
     pub algorithm: String,
+    pub log: Option<String>,
+    pub speed: u32,
 }
 
 impl State {
@@ -40,9 +40,9 @@ impl State {
             checked: vec![],
             comparison: [999; 2],
             status: Status::Paused,
-            start: Instant::now(),
-            end: Instant::now(),
             algorithm: String::from("None"),
+            log: None,
+            speed: 100,
         }
     }
 }
@@ -61,7 +61,9 @@ impl SharedState {
     }
 
     pub fn sleep(&self, ms: Option<u64>) {
-        thread::sleep(Duration::from_millis(ms.unwrap_or(1)));
+        thread::sleep(Duration::from_millis(
+            ms.unwrap_or((101 - self.get_speed()).into()),
+        ));
     }
 
     pub fn park(&self) {
@@ -72,13 +74,37 @@ impl SharedState {
         self.0.lock().unwrap()
     }
 
+    pub fn get_speed(&self) -> u32 {
+        self.get().speed
+    }
+
+    pub fn increment_speed(&self) -> u32 {
+        let mut state = self.get();
+        if state.speed < 100 {
+            state.speed += 5;
+        }
+        state.speed
+    }
+
+    pub fn set_speed(&self, value: u32) -> u32 {
+        self.get().speed = value;
+        self.get_speed()
+    }
+
+    pub fn decrement_speed(&self) -> u32 {
+        let mut state = self.get();
+        if state.speed > 5 {
+            state.speed -= 5;
+        }
+        state.speed
+    }
+
     pub fn get_last(&self) -> u32 {
         self.get().last_swapped
     }
 
     pub fn set_last(&self, index: u32) -> u32 {
-        let mut state = self.get();
-        state.last_swapped = index;
+        self.get().last_swapped = index;
         index
     }
 
@@ -112,8 +138,7 @@ impl SharedState {
     }
 
     pub fn set_checked(&self, index: u32) -> u32 {
-        let mut state = self.get();
-        state.checked.push(index);
+        self.get().checked.push(index);
         index
     }
 
@@ -144,7 +169,7 @@ impl SharedState {
     pub fn increment_comparisons(&self) -> u32 {
         let mut state = self.get();
         state.comparisons += 1;
-        state.comparisons + 1
+        state.comparisons
     }
 
     pub fn get_status(&self) -> Status {
@@ -153,38 +178,31 @@ impl SharedState {
 
     pub fn set_status(&self, status: Status) -> Status {
         let mut state = self.get();
-        let clone = status.clone();
-
-        if let Status::Failed | Status::Paused | Status::Checking = clone {
-            state.end = Instant::now();
-        }
-
-        state.status = clone;
+        state.status = status.clone();
         status
-    }
-
-    pub fn get_start(&self) -> Instant {
-        self.get().start
-    }
-
-    pub fn set_start(&self, start: Instant) -> Instant {
-        let mut state = self.get();
-        state.start = start;
-        start
     }
 
     pub fn get_algorithm(&self) -> String {
         self.get().algorithm.clone()
     }
 
+    pub fn log(&self, text: String) -> String {
+        self.get().log = Some(text.clone());
+        text
+    }
+
+    pub fn get_log(&self) -> Option<String> {
+        self.get().log.clone()
+    }
+
     pub fn set_algorithm(&self, name: String) -> String {
-        let mut state = self.get();
-        let clone = name.clone();
-        state.algorithm = clone;
+        self.get().algorithm = name.clone();
         name
     }
 
-    pub fn get_end(&self) -> Instant {
-        self.get().end
+    pub fn init_algorithm(&self, name: String) {
+        self.set_algorithm(name);
+        self.set_status(Status::Paused);
+        self.park();
     }
 }

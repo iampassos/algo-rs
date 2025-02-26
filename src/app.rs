@@ -11,14 +11,14 @@ use ratatui::{
     style::{Style, Stylize},
     symbols::border,
     text::Line,
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, List},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, List, Paragraph, Wrap},
     Frame,
 };
 
 use crate::{
     algorithms::{
-        bubble_sort::BubbleSort, insertion_sort::InsertionSort, selection_sort::SelectionSort,
-        Algorithm,
+        bubble_sort::BubbleSort, insertion_sort::InsertionSort, merge_sort::MergeSort,
+        selection_sort::SelectionSort, Algorithm,
     },
     array::Array,
     state::{SharedState, State, Status},
@@ -32,6 +32,7 @@ pub struct App {
     pub exit: bool,
     state: SharedState,
     algorithm_handle: Option<JoinHandle<()>>,
+    algorithm_index: i8,
 }
 
 impl App {
@@ -40,12 +41,13 @@ impl App {
             exit: false,
             state: SharedState::new(State::new(array)),
             algorithm_handle: None,
+            algorithm_index: 0,
         }
     }
 
     pub fn init(tx: mpsc::Sender<Event>) -> Self {
         let array = App::generate_array();
-        let state = App::new(array);
+        let mut state = App::new(array);
 
         thread::spawn(move || loop {
             match event::read().unwrap() {
@@ -54,12 +56,23 @@ impl App {
             }
         });
 
+        state.handle_algorithms(0);
+
         state
     }
 
     pub fn handle_input(&mut self, key_event: event::KeyEvent) {
         if key_event.kind == event::KeyEventKind::Press {
             match key_event.code {
+                event::KeyCode::Char('k') => {
+                    self.state.increment_speed();
+                }
+                event::KeyCode::Char('j') => {
+                    self.state.decrement_speed();
+                }
+                event::KeyCode::Char('h') => self.handle_algorithms(-1),
+                event::KeyCode::Char('l') => self.handle_algorithms(1),
+                event::KeyCode::Char('r') => self.handle_algorithms(0),
                 event::KeyCode::Char('q') => self.exit = true,
                 event::KeyCode::Char('p') => {
                     if let Some(ref handle) = self.algorithm_handle {
@@ -75,11 +88,24 @@ impl App {
                         };
                     }
                 }
-                event::KeyCode::Char('1') => self.start_algorithm(Box::new(BubbleSort)),
-                event::KeyCode::Char('2') => self.start_algorithm(Box::new(SelectionSort)),
-                event::KeyCode::Char('3') => self.start_algorithm(Box::new(InsertionSort)),
                 _ => {}
             }
+        }
+    }
+
+    pub fn handle_algorithms(&mut self, increment: i32) {
+        if increment > 0 {
+            self.algorithm_index += 1;
+        } else if increment < 0 {
+            self.algorithm_index -= 1;
+        }
+
+        match self.algorithm_index % 4 {
+            0 => self.start_algorithm(Box::new(BubbleSort)),
+            1 => self.start_algorithm(Box::new(SelectionSort)),
+            2 => self.start_algorithm(Box::new(InsertionSort)),
+            3 => self.start_algorithm(Box::new(MergeSort)),
+            _ => self.start_algorithm(Box::new(BubbleSort)),
         }
     }
 
@@ -91,7 +117,7 @@ impl App {
         }
     }
 
-    pub fn start_algorithm(&mut self, algorithm: Box<dyn Algorithm + Send>) {
+    pub fn start_algorithm(&mut self, algorithm: Box<dyn Algorithm + Send + Sync>) {
         self.interrupt_algorithm();
 
         let algorithm_state1 = self.state.clone();
@@ -119,22 +145,23 @@ impl App {
             array_accesses,
             comparisons,
             status,
-            start,
-            end,
             algorithm,
+            log,
+            speed,
         } = self.state.get().clone();
 
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Percentage(20), Constraint::Percentage(80)])
+            .constraints(vec![
+                Constraint::Percentage(20),
+                Constraint::Percentage(60),
+                Constraint::Percentage(20),
+            ])
             .split(frame.area());
 
         let graph_layout = centered_rect(79, 55, frame.area());
 
-        let block = Block::new()
-            .title(Line::bold(format!(" {algorithm} ").into()).centered())
-            .border_set(border::THICK)
-            .borders(Borders::BOTTOM);
+        let block = Block::new().border_set(border::THICK);
 
         let completed_style = Style::new().green();
         let comparison_style = Style::new().red();
@@ -191,7 +218,7 @@ impl App {
             .constraints(vec![
                 Constraint::Percentage(1),
                 Constraint::Percentage(15),
-                Constraint::Fill(1),
+                Constraint::Percentage(73),
                 Constraint::Percentage(10),
                 Constraint::Percentage(1),
             ])
@@ -207,59 +234,47 @@ impl App {
             .borders(Borders::TOP);
         let help_rect = help_block.inner(layout_inner[3]);
 
-        let status_text = match status {
-            Status::Completed => "Completed",
-            Status::Paused => "Paused",
-            Status::Running => "Running",
-            Status::Interrupted => "Interrupted",
-            Status::Checking => "Checking",
-            Status::Failed => "Failed",
+        let algorithms_block = Block::new()
+            .title(Line::raw(" Algo-rs ").bold().centered())
+            .borders(Borders::TOP);
+        let algorithms_rect = overview_block.inner(layout_inner[2]);
+
+        let (status_text, status_color) = match status {
+            Status::Completed => ("Completed", Color::Green),
+            Status::Paused => ("Paused", Color::Yellow),
+            Status::Running => ("Running", Color::White),
+            Status::Interrupted => ("Interrupted", Color::Red),
+            Status::Checking => ("Checking", Color::Yellow),
+            Status::Failed => ("Failed", Color::Red),
         };
 
-        let status_color = match status {
-            Status::Completed => Color::Green,
-            Status::Running => Color::White,
-            Status::Paused => Color::Yellow,
-            Status::Interrupted => Color::Red,
-            Status::Checking => Color::Yellow,
-            Status::Failed => Color::Red,
-        };
+        let overview = List::new(Line::from(vec![
+            format!("Algorithm: {}", algorithm).fg(Color::Green).into(),
+            format!("Total Numbers: {}", array.len()).into(),
+            format!("Array Accesses: {}", array_accesses).into(),
+            format!("Comparisons: {}", comparisons).into(),
+            format!("Speed: {}%", speed).into(),
+            format!("Status: {}", status_text).fg(status_color).into(),
+        ]));
 
-        let overview = List::new(
-            Line::from(vec![
-                format!("Algorithm: {}", algorithm).into(),
-                format!("Total Numbers: {}", array.len()).into(),
-                format!("Array Accesses: {}", array_accesses).into(),
-                format!("Comparisons: {}", comparisons).into(),
-                format!(
-                    "Time Elapsed: {:.2}s",
-                    if let Status::Paused | Status::Failed | Status::Checking | Status::Completed =
-                        status
-                    {
-                        (end - start).as_secs_f32()
-                    } else {
-                        start.elapsed().as_secs_f32()
-                    }
-                )
-                .into(),
-                format!("Status: {}", status_text).fg(status_color).into(),
-            ])
-            .centered(),
-        );
-
-        let help = List::new(
-            Line::from(vec![
-                "Quit: <Q>".into(),
-                "Pause/Resume: <P>".into(),
-                "Next: <L>".into(),
-                "Previous: <H>".into(),
-            ])
-            .centered(),
-        );
+        let help = List::new(Line::from(vec![
+            "Quit: <Q>".into(),
+            "Pause/Resume: <P>".into(),
+            "Reset: <R>".into(),
+            "Next: <L>".into(),
+            "Previous: <H>".into(),
+            "Increase Speed: <K>".into(),
+            "Decrease Speed: <J>".into(),
+        ]));
 
         frame.render_widget(barchart, graph_layout);
         frame.render_widget(overview.block(overview_block), overview_rect);
         frame.render_widget(help.block(help_block), help_rect);
+        frame.render_widget(algorithms_block, algorithms_rect);
+
+        if let Some(text) = log {
+            frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }), layout[2]);
+        }
     }
 }
 

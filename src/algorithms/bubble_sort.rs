@@ -1,5 +1,3 @@
-use std::time;
-
 use super::Algorithm;
 use crate::{
     array::Array,
@@ -10,9 +8,7 @@ pub struct BubbleSort;
 
 impl Algorithm for BubbleSort {
     fn sort(&self, state: SharedState, array: Array) {
-        state.set_algorithm("Bubble Sort".to_string());
-        state.set_status(Status::Running);
-        state.set_start(time::Instant::now());
+        state.init_algorithm("Bubble Sort".to_string());
 
         let len = array.len();
 
