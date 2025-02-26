@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 
         terminal.draw(|frame| app.draw(frame)).unwrap();
 
-        thread::sleep(time::Duration::from_millis(20));
+        thread::sleep(time::Duration::from_millis(1));
     }
 
     ratatui::restore();

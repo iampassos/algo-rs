@@ -110,6 +110,7 @@ impl SharedState {
 
     pub fn check(&self) {
         self.set_status(Status::Checking);
+        self.set_last(0);
 
         let array = self.get().array.clone();
         let len = array.len();

@@ -9,9 +9,8 @@ use crossterm::{event, style::Color};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
-    symbols::border,
     text::Line,
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, List, Paragraph, Wrap},
+    widgets::{Bar, BarChart, BarGroup, Block, BorderType, Borders, List, Paragraph, Wrap},
     Frame,
 };
 
@@ -30,7 +29,7 @@ pub enum Event {
 
 pub struct App {
     pub exit: bool,
-    state: SharedState,
+    pub state: SharedState,
     algorithm_handle: Option<JoinHandle<()>>,
     algorithm_index: i8,
 }
@@ -161,7 +160,9 @@ impl App {
 
         let graph_layout = centered_rect(79, 55, frame.area());
 
-        let block = Block::new().border_set(border::THICK);
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick);
 
         let completed_style = Style::new().green();
         let comparison_style = Style::new().red();
@@ -234,10 +235,10 @@ impl App {
             .borders(Borders::TOP);
         let help_rect = help_block.inner(layout_inner[3]);
 
-        let algorithms_block = Block::new()
-            .title(Line::raw(" Algo-rs ").bold().centered())
+        let title_block = Block::new()
+            .title(Line::raw(" algorithm-tui ").bold().centered())
             .borders(Borders::TOP);
-        let algorithms_rect = overview_block.inner(layout_inner[2]);
+        let title_rect = overview_block.inner(layout_inner[2]);
 
         let (status_text, status_color) = match status {
             Status::Completed => ("Completed", Color::Green),
@@ -270,7 +271,7 @@ impl App {
         frame.render_widget(barchart, graph_layout);
         frame.render_widget(overview.block(overview_block), overview_rect);
         frame.render_widget(help.block(help_block), help_rect);
-        frame.render_widget(algorithms_block, algorithms_rect);
+        frame.render_widget(title_block, title_rect);
 
         if let Some(text) = log {
             frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }), layout[2]);
