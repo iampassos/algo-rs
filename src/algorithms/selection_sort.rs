@@ -22,7 +22,7 @@ impl Algorithm for SelectionSort {
                     _ => {}
                 };
 
-                if array.compare(min_index, j) {
+                if array.is_greater(min_index, j) {
                     min_index = j;
                 }
 

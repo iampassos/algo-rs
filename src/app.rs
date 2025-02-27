@@ -17,7 +17,7 @@ use ratatui::{
 use crate::{
     algorithms::{
         bubble_sort::BubbleSort, insertion_sort::InsertionSort, merge_sort::MergeSort,
-        selection_sort::SelectionSort, Algorithm,
+        quick_sort::QuickSort, selection_sort::SelectionSort, Algorithm,
     },
     array::Array,
     state::{SharedState, State, Status},
@@ -92,18 +92,20 @@ impl App {
         }
     }
 
-    pub fn handle_algorithms(&mut self, increment: i32) {
-        if increment > 0 {
-            self.algorithm_index += 1;
-        } else if increment < 0 {
-            self.algorithm_index -= 1;
+    pub fn handle_algorithms(&mut self, increment: i8) {
+        let algorithm_count = 5;
+
+        if increment <= 0 && self.algorithm_index == 0 {
+            self.algorithm_index = algorithm_count;
+        } else {
+            self.algorithm_index += increment;
         }
 
-        match self.algorithm_index % 4 {
-            0 => self.start_algorithm(Box::new(BubbleSort)),
+        match self.algorithm_index % algorithm_count {
             1 => self.start_algorithm(Box::new(SelectionSort)),
             2 => self.start_algorithm(Box::new(InsertionSort)),
             3 => self.start_algorithm(Box::new(MergeSort)),
+            4 => self.start_algorithm(Box::new(QuickSort)),
             _ => self.start_algorithm(Box::new(BubbleSort)),
         }
     }
@@ -158,7 +160,7 @@ impl App {
             ])
             .split(frame.area());
 
-        let graph_layout = centered_rect(79, 55, frame.area());
+        let graph_layout = centered_rect(80, 55, frame.area());
 
         let block = Block::new()
             .borders(Borders::ALL)

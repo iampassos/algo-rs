@@ -21,7 +21,7 @@ impl Algorithm for InsertionSort {
 
             let mut left = i;
 
-            while left > 0 && array.compare(left - 1, left) {
+            while left > 0 && array.is_greater(left - 1, left) {
                 match state.get_status() {
                     Status::Paused => state.park(),
                     Status::Interrupted => return,

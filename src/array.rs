@@ -31,13 +31,27 @@ impl Array {
         self.0.get().array.len()
     }
 
-    pub fn compare(&self, index1: usize, index2: usize) -> bool {
+    pub fn compare(&self, index1: usize, index2: usize) {
         self.0.increment_comparisons();
         self.0.set_comparison([
             u32::try_from(index1).unwrap(),
             u32::try_from(index2).unwrap(),
         ]);
+    }
+
+    pub fn is_greater(&self, index1: usize, index2: usize) -> bool {
+        self.compare(index1, index2);
         self.get(index1) > self.get(index2)
+    }
+
+    pub fn is_greater_equal(&self, index1: usize, index2: usize) -> bool {
+        self.compare(index1, index2);
+        self.get(index1) >= self.get(index2)
+    }
+
+    pub fn is_equal(&self, index1: usize, index2: usize) -> bool {
+        self.compare(index1, index2);
+        self.get(index1) == self.get(index2)
     }
 
     pub fn swap(&self, index1: usize, index2: usize) {

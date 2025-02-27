@@ -31,7 +31,7 @@ impl Algorithm for MergeSort {
                     _ => {}
                 };
 
-                if array.compare(left as usize, right as usize) {
+                if array.is_greater(left as usize, right as usize) {
                     let mut idx: usize = right as usize;
                     let temp = array.get(idx);
 

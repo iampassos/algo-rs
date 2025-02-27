@@ -16,13 +16,7 @@ impl Algorithm for BubbleSort {
             let mut swap = false;
 
             for j in 0..len - i - 1 {
-                match state.get_status() {
-                    Status::Paused => state.park(),
-                    Status::Interrupted => return,
-                    _ => {}
-                };
-
-                if array.compare(j, j + 1) {
+                if array.is_greater(j, j + 1) {
                     swap = true;
                     state.set_last(u32::try_from(j + 1).unwrap());
                     array.swap(j, j + 1);
